@@ -13,15 +13,20 @@ import urllib2
 from bs4 import BeautifulSoup
 from django.utils.encoding import smart_str
 import re
+import urllib
+import time
+from google.appengine.api import taskqueue
 
 
-class ParserItem(base_handler.PipelineBase):
-    def run(self, item_page):
+class Create_product(webapp2.RequestHandler):
+    def get(self):
+        item_page = self.request.get('target')
         html = urllib2.urlopen(item_page).read()
         body = BeautifulSoup(html)
         title = smart_str(body.select("#trace_hid_name")[0].attrs.get('value'))
         price = int(re.match("\d+", body.select("[itemprop=price]")[0].attrs.get('content')).group())
-        logging.info(title,price)
+        logging.info(price)
+        logging.info(title)
 
 
 class ParsePage(base_handler.PipelineBase):
@@ -29,9 +34,11 @@ class ParsePage(base_handler.PipelineBase):
         html = urllib2.urlopen(page).read()
         body = BeautifulSoup(html)
         items = body.select('[href^=http://tw.page.bid.yahoo.com/tw/auction/]')
-        for item in items:
-            item_url = item.attrs.get('href')
-            yield ParserItem(item_url)
+        items = [item.attrs.get('href') for item in items]
+        items = set(items)
+        for item_url in items:
+            taskqueue.add(url="/create_product?" + urllib.urlencode({"target":item_url}), method='GET')
+            logging.info(item_url)
 
 class Parse(base_handler.PipelineBase):
     def run(self, target):
@@ -62,4 +69,5 @@ class SummaryHandler(webapp2.RequestHandler):
 
 app = webapp2.WSGIApplication([
     Route('/', handler=SummaryHandler, name='summary'),
+    Route('/create_product', handler=Create_product, name='create'),
 ], debug=True)
