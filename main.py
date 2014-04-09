@@ -53,8 +53,12 @@ class Parse(base_handler.PipelineBase):
             yield ParsePage(page_url)
 
 
+from sample_auth import auth
 class SummaryHandler(webapp2.RequestHandler):
     def get(self):
+        auth(self.request, "george")
+        import pdb;pdb.set_trace()
+
         target = self.request.get("target")
 
         job = Parse(target)
